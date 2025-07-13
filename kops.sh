@@ -33,9 +33,9 @@ echo "✅ kops version:"
 kops version
 
 # --- Configuration Section ---
-BUCKET_NAME="avinash912.k8s.local"
+BUCKET_NAME="avinash454.k8s.local"
 REGION="ap-south-1"
-CLUSTER_NAME="aviiinasshh.k8s.local"
+CLUSTER_NAME="aviiinasshhhh.k8s.local"
 ZONES="ap-south-1a"
 MASTER_SIZE="t2.medium"
 NODE_SIZE="t2.micro"
