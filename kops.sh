@@ -1,75 +1,54 @@
 #!/bin/bash
 set -euo pipefail
 
-# Export path for local binaries if needed
-export PATH=$PATH:/usr/local/bin
+# ===== Configuration =====
+BUCKET_NAME="avinash912-$(date +%s).k8s.local"  # ensure globally unique
+CLUSTER_NAME="rahams.k8s.local"
+REGION="us-east-1"
+ZONES="us-east-1a"
 
-# Download latest stable kubectl
-echo "📦 Downloading latest stable kubectl..."
+# ===== Download kubectl =====
+echo "📦 Downloading kubectl..."
 curl -LO "https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/
 
-# Download correct version of kops
-KOPS_VERSION="1.30.3"
-echo "📦 Downloading kops version v${KOPS_VERSION}..."
-curl -LO "https://github.com/kubernetes/kops/releases/download/v${KOPS_VERSION}/kops-linux-amd64"
-
-# Make both binaries executable
-chmod +x kubectl kops-linux-amd64
-
-# Move them into PATH
-sudo mv kubectl /usr/local/bin/kubectl
+# ===== Download kops =====
+echo "📦 Downloading kops..."
+curl -LO https://github.com/kubernetes/kops/releases/latest/download/kops-linux-amd64
+chmod +x kops-linux-amd64
 sudo mv kops-linux-amd64 /usr/local/bin/kops
 
-# Check if files are valid executables
-echo "🔍 Validating binaries..."
-file /usr/local/bin/kubectl
-file /usr/local/bin/kops
-
-# Check versions
-echo "✅ kubectl version:"
+# ===== Verify installations =====
+echo "✅ Verifying installations..."
 kubectl version --client
-
-echo "✅ kops version:"
 kops version
 
-# --- Configuration Section ---
-BUCKET_NAME="avinash454.k8s.local"
-REGION="ap-south-1"
-CLUSTER_NAME="aviiinasshhhh.k8s.local"
-ZONES="ap-south-1a"
-MASTER_SIZE="t2.medium"
-NODE_SIZE="t2.micro"
+# ===== Create S3 bucket for Kops =====
+echo "🪣 Creating S3 bucket: $BUCKET_NAME..."
+aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION"
 
-# --- S3 State Store Setup ---
-echo "🌐 Setting up S3 bucket for Kops state store..."
-aws s3api create-bucket \
-  --bucket "$BUCKET_NAME" \
-  --region "$REGION" \
-  --create-bucket-configuration LocationConstraint="$REGION" \
-  || echo "⚠️ Bucket already exists or is globally unique."
-
-echo "🔁 Enabling versioning on the bucket..."
-aws s3api put-bucket-versioning \
-  --bucket "$BUCKET_NAME" \
+# ===== Enable versioning =====
+echo "🔄 Enabling versioning on bucket..."
+aws s3api put-bucket-versioning --bucket "$BUCKET_NAME" \
   --versioning-configuration Status=Enabled
 
-# Export state store
-export KOPS_STATE_STORE="s3://${BUCKET_NAME}"
+# ===== Export state store environment variable =====
+export KOPS_STATE_STORE="s3://$BUCKET_NAME"
+echo "📌 KOPS_STATE_STORE set to $KOPS_STATE_STORE"
 
-# --- Cluster Creation ---
-echo "🚀 Creating Kubernetes cluster: $CLUSTER_NAME"
+# ===== Create Kubernetes cluster =====
+echo "🛠️ Creating Kubernetes cluster..."
 kops create cluster \
   --name "$CLUSTER_NAME" \
   --zones "$ZONES" \
-  --master-count=1 \
-  --master-size "$MASTER_SIZE" \
-  --node-count=2 \
-  --node-size "$NODE_SIZE" \
-  --yes
+  --master-size t2.medium \
+  --node-size t2.micro \
+  --master-count 1 \
+  --node-count 2
 
-# Optional: Apply admin access
-echo "🔐 Applying admin access..."
+# ===== Apply the changes =====
+echo "🚀 Deploying the cluster..."
 kops update cluster --name "$CLUSTER_NAME" --yes --admin
 
-echo "✅ Done! Cluster creation has been initiated."
-echo "⏳ Use 'kops validate cluster --name $CLUSTER_NAME' in a few minutes to check its status."
+echo "✅ Cluster deployment initiated."
